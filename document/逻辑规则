@@ -1,0 +1,14 @@
+1,假设用户第一条命令总是init。并且只要init进程创建之后，CPU就不会空闲。没有其他进程可执行的时候就会执行init
+  要达到这一点的话，必须让init对资源的获取采用非阻塞的方式，而其他进程仍然是阻塞方式，注意这点不同。
+  也就是说init进程不会出现Blocked状态。
+2,对于进程的生死、获取资源、调度等所有操作，从数据结构上来说就是移动进程所在位置(反过来说就是更新全局状态量的内容，
+  currentProcess,readyList,blockList,deadList)。scheduler这个调度的方法几乎在所有其他方法之后要执行。所以这里注意区分开
+  scheduler的任何和其他方法的任务。在我的逻辑里面，scheduler唯一任务就是更新currentProcess(CPU上执行的进程)的值
+  (同时可能更新readyList)，而对
+  其他变量的维护更新放在各个对应方法里面，比如createProcess方法要更新readyList，requestResource方法可能更新blockList,
+  releaseResource可能会更新readyList和blockList,destroyProcess可能更新readyList,blockList,deadList。而这些方法涉及到
+  需要变更currentProcess的话，比如destory可能导致当前进程变为Terminated状态，requestResource可能导致当前进程变为block
+  状态，timeout会将当前进程状态设置为ready，但是注意他们只会变更当前进程的状态State，但是不会更新currentProcess这个引用
+  值本身，因为这是scheduler方法的任务。所以scheduler方法内部也是通过判断当前进程的State属性来进行不同的操作的。
+3,在这个实验中，进程设置了五种状态，虽然NEW和TERMINATED和核心逻辑关系不大，但是这样使得逻辑更加清晰和全面，能够从整体上
+  对系统做出一些管理。
