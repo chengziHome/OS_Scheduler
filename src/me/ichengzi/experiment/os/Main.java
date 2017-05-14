@@ -336,6 +336,7 @@ public class Main {
         System.out.println("                                      Print all resources's details if the RID is not specified.");
         System.out.println("     exit:               Exit the system");
         System.out.println("     help:               Print this help massage!");
+        System.out.println("     Welcome to https://github.com/chengziHome/OS_Scheduler");
         System.out.println("help end.");
 
 
