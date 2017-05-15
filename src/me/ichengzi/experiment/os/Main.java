@@ -7,7 +7,10 @@ import me.ichengzi.experiment.os.resource.ResourceImpl;
 import me.ichengzi.experiment.os.resource.ResourceManager;
 import me.ichengzi.experiment.os.scheduler.Scheduler;
 
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -31,7 +34,7 @@ public class Main {
 
 
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
 
 
         System.out.println("请输入命令");
@@ -42,247 +45,270 @@ public class Main {
             if ("".equals(cmdStr)){
                 continue;
             }
-            String[] cmds = cmdStr.split("\\s+");
-            String operation = cmds[0];
+            String[] commands = null;
 
-            switch (operation){
-                case "init":
-                    if (manager.findProcess("init")!=null){
-                        error("Init process has been invoked already!!!");
-                    }else{
-                        ProcessFactory.createProcess("init",0);
-                        success("init");
-                    }
-                    break;
-                case "cr":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if (cmds.length!=3){
-                        parameterError();
-                    }else{
-                        String processName = cmds[1];
-                        int priority = 0;
-                        try {
-                            priority = Integer.parseInt(cmds[2]);
-                        } catch (NumberFormatException e) {
-                            parameterError();
-                        }
-                        if (priority<0 || priority>2)
-                            parameterError();
-                        if (manager.exsitName(processName)){
-                            error("process name["+processName+"] has existed already! Please replace it!");
-                            break;
-                        }
-                        ProcessFactory.createProcess(processName,priority);
-                    }
-                    break;
-                case "de":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if(cmds.length!=2){
-                        parameterError();
-                    } else{
-                        String processName = cmds[1];
-                        Process process = manager.findProcess(processName);
-                        if (process==null){
-                            error("Can't find "+processName+"!It may has not been created or has been killed already!");
-                        }else if("init".equals(processName)){
-                            process.destoryInit();
-                            success("Reset ");
-                            System.out.println("Notice: Invoked init process before you want to do anything else !");
+            String[] cmdStrs = cmdStr.split("\\s+");
+            String operation = cmdStrs[0];
+
+            if (operation.equals("load")){
+                if (cmdStrs.length!=2){
+                    parameterError();
+                }
+                try {
+                    commands = loadFile(cmdStrs[1]);
+                } catch (IOException e) {
+                    error(e.getMessage());
+                }
+            }else{
+                commands = new String[]{cmdStr};
+            }
+
+            for (String command:commands){
+                String[] cmds = command.split("\\s+");
+                String opt = cmds[0];
+                switch (opt){
+                    case "init":
+                        if (manager.findProcess("init")!=null){
+                            error("Init process has been invoked already!!!");
                         }else{
-                            process.destory();
-                            success("kill "+processName+" process ");
+                            ProcessFactory.createProcess("init",0);
+                            success("init");
                         }
-                    }
-                    break;
-                case "req":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if(cmds.length!=3){
-                        parameterError();
-                    }else{
-                        String resourceName = cmds[1];
-                        int needNum = 0;
-                        try {
-                            needNum = Integer.parseInt(cmds[2]);
-                        } catch (NumberFormatException e) {
+                        break;
+                    case "cr":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if (cmds.length!=3){
                             parameterError();
-                        }
-
-                        Process currentProcess = manager.getCurrentProcess();
-                        ReturnUtil result = null;
-                        Resource res = null;
-                        switch (resourceName){
-                            case "R1":
-                                result = R1.request(currentProcess,needNum);
-                                res = R1;
-                                break;
-                            case "R2":
-                                result = R2.request(currentProcess,needNum);
-                                res = R2;
-                                break;
-                            case "R3":
-                                result = R3.request(currentProcess,needNum);
-                                res = R3;
-                                break;
-                            case "R4":
-                                result = R4.request(currentProcess,needNum);
-                                res = R4;
-                                break;
-                            default:
+                        }else{
+                            String processName = cmds[1];
+                            int priority = 0;
+                            try {
+                                priority = Integer.parseInt(cmds[2]);
+                            } catch (NumberFormatException e) {
                                 parameterError();
+                            }
+                            if (priority<0 || priority>2)
+                                parameterError();
+                            if (manager.exsitName(processName)){
+                                error("process name["+processName+"] has existed already! Please replace it!");
+                                break;
+                            }
+                            ProcessFactory.createProcess(processName,priority);
                         }
-                        if (result!=null){
-                            if (result.getRet_code()==0){
-                                success("Request resource ");
+                        break;
+                    case "de":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if(cmds.length!=2){
+                            parameterError();
+                        } else{
+                            String processName = cmds[1];
+                            Process process = manager.findProcess(processName);
+                            if (process==null){
+                                error("Can't find "+processName+"!It may has not been created or has been killed already!");
+                            }else if("init".equals(processName)){
+                                process.destoryInit();
+                                success("Reset ");
+                                System.out.println("Notice: Invoked init process before you want to do anything else !");
                             }else{
-                                error(result.getErr_msg());
-                                res.printCurrentStauts();
+                                process.destory();
+                                success("kill "+processName+" process ");
                             }
                         }
-                    }
-                    break;
-                case "rel":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if(cmds.length!=2){
-                        parameterError();
-                    }else{
-                        String resourceName = cmds[1];
-
-
-                        Process currentProcess = manager.getCurrentProcess();
-                        //这里和获取资源不同，释放资源不会失败(逻辑上)。
-                        switch (resourceName){
-                            case "R1":
-                                R1.release(currentProcess);
-                                break;
-                            case "R2":
-                                R2.release(currentProcess);
-                                break;
-                            case "R3":
-                                R3.release(currentProcess);
-                                break;
-                            case "R4":
-                                R4.release(currentProcess);
-                                break;
-                            default:
-                                parameterError();
-                        }
-                    }
-                    break;
-                case "to":
-                    Scheduler.timeout();
-                    break;
-                case "ch":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if(cmds.length!=2){
-                        parameterError();
-                    }else{
-                        String pname = cmds[1];
-                        Process currentProcess = manager.getCurrentProcess();
-                        Process process = manager.findProcess(pname);
-                        if(process == null){
-                            error("Can't find the process with specified name !");
-                        }else if(pname.equals(currentProcess.getName())){
-                            // do nothing !
-                        }else if(process.getState() == ProcessImpl.State.BLOCKED){
-                            error("The "+pname+" process has been blocked in the blocked queue of resource R"+process.getBlockResource().getRID());
+                        break;
+                    case "req":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if(cmds.length!=3){
+                            parameterError();
                         }else{
-                            manager.checkoutProcess(process);
-                            success("Checkout the "+pname+" process");
-                        }
-                    }
-                    break;
-                case "list":
-                    if (manager.findProcess("init")==null){
-                        initError();
-                    }else if(cmds.length<2){
-                        parameterError();
-                    }else{
-                        String option = cmds[1];
-                        switch (option){
-                            case "-pt":
-                                if(cmds.length!=3){
-                                    parameterError();
-                                }else{
-                                    String pname = cmds[2];
-                                    Process root = manager.findProcess(pname);
-                                    if(root==null){
-                                        error(" Can't find "+pname+" process!");
-                                    }else{
-                                        manager.printProcessTree(root);
-                                        // TODO: 2017/4/23 这个方法还不能打出比较复杂的树结构 ,有待完善
-                                    }
-                                }
-                                break;
-                            case "-pd":
-                                if (cmds.length!=3){
-                                    parameterError();
-                                }else{
-                                    String pname = cmds[2];
-                                    Process process = manager.findProcess(pname);
-                                    if(process==null){
-                                        error(" Can't find "+pname+" process!");
-                                    }else{
-                                        manager.printProcessDetail(process);
-                                    }
-                                }
-                                break;
-                            case "-rl":
-                                readyQueue.printStatus();
-                                break;
-                            case "-c":
-                                // do nothing!
-                                break;
-                            case "-m":
-                                System.out.println("Max ProcessID(totally count) :"+manager.maxPID());
-                                break;
-                            case "-r":
-
-                                if (cmds.length==2){
-                                    ResourceManager.getManager().printCurrentStatus();
-                                }else if(cmds.length==3){
-                                    String RID = cmds[2];
-                                    switch (RID){
-                                        case "R1":
-                                            R1.printCurrentStauts();
-                                            break;
-                                        case "R2":
-                                            R2.printCurrentStauts();
-                                            break;
-                                        case "R3":
-                                            R3.printCurrentStauts();
-                                            break;
-                                        case "R4":
-                                            R4.printCurrentStauts();
-                                            break;
-                                        default:
-                                            parameterError();
-                                    }
-                                }else{
-                                    parameterError();
-                                }
-
-                                break;
-                            default:
+                            String resourceName = cmds[1];
+                            int needNum = 0;
+                            try {
+                                needNum = Integer.parseInt(cmds[2]);
+                            } catch (NumberFormatException e) {
                                 parameterError();
-                        }
-                    }
-                    break;
-                case "help":
-                    printHelpMessage();
-                    break;
-                case "exit":
-                    System.out.println("Bye!");
-                    return;
-                default:
-                    System.out.println("Incorrect input! Type help for more detailed information.");
+                            }
 
-                    break;
+                            Process currentProcess = manager.getCurrentProcess();
+                            ReturnUtil result = null;
+                            Resource res = null;
+                            switch (resourceName){
+                                case "R1":
+                                    result = R1.request(currentProcess,needNum);
+                                    res = R1;
+                                    break;
+                                case "R2":
+                                    result = R2.request(currentProcess,needNum);
+                                    res = R2;
+                                    break;
+                                case "R3":
+                                    result = R3.request(currentProcess,needNum);
+                                    res = R3;
+                                    break;
+                                case "R4":
+                                    result = R4.request(currentProcess,needNum);
+                                    res = R4;
+                                    break;
+                                default:
+                                    parameterError();
+                            }
+                            if (result!=null){
+                                if (result.getRet_code()==0){
+                                    success("Request resource ");
+                                }else{
+                                    error(result.getErr_msg());
+                                    res.printCurrentStauts();
+                                }
+                            }
+                        }
+                        break;
+                    case "rel":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if(cmds.length!=2){
+                            parameterError();
+                        }else{
+                            String resourceName = cmds[1];
+
+
+                            Process currentProcess = manager.getCurrentProcess();
+                            //这里和获取资源不同，释放资源不会失败(逻辑上)。
+                            switch (resourceName){
+                                case "R1":
+                                    R1.release(currentProcess);
+                                    break;
+                                case "R2":
+                                    R2.release(currentProcess);
+                                    break;
+                                case "R3":
+                                    R3.release(currentProcess);
+                                    break;
+                                case "R4":
+                                    R4.release(currentProcess);
+                                    break;
+                                default:
+                                    parameterError();
+                            }
+                        }
+                        break;
+                    case "to":
+                        Scheduler.timeout();
+                        break;
+                    case "ch":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if(cmds.length!=2){
+                            parameterError();
+                        }else{
+                            String pname = cmds[1];
+                            Process currentProcess = manager.getCurrentProcess();
+                            Process process = manager.findProcess(pname);
+                            if(process == null){
+                                error("Can't find the process with specified name !");
+                            }else if(pname.equals(currentProcess.getName())){
+                                // do nothing !
+                            }else if(process.getState() == ProcessImpl.State.BLOCKED){
+                                error("The "+pname+" process has been blocked in the blocked queue of resource R"+process.getBlockResource().getRID());
+                            }else{
+                                manager.checkoutProcess(process);
+                                success("Checkout the "+pname+" process");
+                            }
+                        }
+                        break;
+                    case "list":
+                        if (manager.findProcess("init")==null){
+                            initError();
+                        }else if(cmds.length<2){
+                            parameterError();
+                        }else{
+                            String option = cmds[1];
+                            switch (option){
+                                case "-pt":
+                                    if(cmds.length!=3){
+                                        parameterError();
+                                    }else{
+                                        String pname = cmds[2];
+                                        Process root = manager.findProcess(pname);
+                                        if(root==null){
+                                            error(" Can't find "+pname+" process!");
+                                        }else{
+                                            manager.printProcessTree(root);
+                                            // TODO: 2017/4/23 这个方法还不能打出比较复杂的树结构 ,有待完善
+                                        }
+                                    }
+                                    break;
+                                case "-pd":
+                                    if (cmds.length!=3){
+                                        parameterError();
+                                    }else{
+                                        String pname = cmds[2];
+                                        Process process = manager.findProcess(pname);
+                                        if(process==null){
+                                            error(" Can't find "+pname+" process!");
+                                        }else{
+                                            manager.printProcessDetail(process);
+                                        }
+                                    }
+                                    break;
+                                case "-rl":
+                                    readyQueue.printStatus();
+                                    break;
+                                case "-c":
+                                    // do nothing!
+                                    break;
+                                case "-m":
+                                    System.out.println("Max ProcessID(totally count) :"+manager.maxPID());
+                                    break;
+                                case "-r":
+
+                                    if (cmds.length==2){
+                                        ResourceManager.getManager().printCurrentStatus();
+                                    }else if(cmds.length==3){
+                                        String RID = cmds[2];
+                                        switch (RID){
+                                            case "R1":
+                                                R1.printCurrentStauts();
+                                                break;
+                                            case "R2":
+                                                R2.printCurrentStauts();
+                                                break;
+                                            case "R3":
+                                                R3.printCurrentStauts();
+                                                break;
+                                            case "R4":
+                                                R4.printCurrentStauts();
+                                                break;
+                                            default:
+                                                parameterError();
+                                        }
+                                    }else{
+                                        parameterError();
+                                    }
+
+                                    break;
+                                default:
+                                    parameterError();
+                            }
+                        }
+                        break;
+                    case "help":
+                        printHelpMessage();
+                        break;
+                    case "exit":
+                        System.out.println("Bye!");
+                        return;
+                    default:
+                        System.out.println("Incorrect input! Type help for more detailed information.");
+
+                        break;
+                }
             }
+
+
+
+
 
             if (manager.getCurrentProcess()!=null){
                 System.out.println("Current executing process:"+manager.getCurrentProcess().getName());
@@ -290,6 +316,22 @@ public class Main {
 
         }
 
+    }
+
+    private static String[]  loadFile(String filePath) throws IOException {
+        InputStream in = new FileInputStream(filePath);
+        LineNumberReader reader = new LineNumberReader(new FileReader(filePath));
+        List<String> cmdList = new ArrayList<>();
+        String cmd = null;
+        while((cmd=reader.readLine())!=null){
+            if (!"".equals(cmd)){
+                cmdList.add(cmd);
+            }
+        }
+        String[] result = new String[cmdList.size()];
+        cmdList.toArray(result);
+        System.out.println(Arrays.toString(result));
+        return result;
     }
 
 
@@ -327,13 +369,15 @@ public class Main {
         System.out.println("                         (Of course the process's state should be ready !)");
         System.out.println("     list [-option]:     Print some statistical information.");
         System.out.println("                         Options include;");
-        System.out.println("                         -pt pname    Print the process with pname process as root node");
+        System.out.println("                         -pt pname    Print the process tree with the specified process as root node");
         System.out.println("                         -pd pname    Print the details of the pname process");
         System.out.println("                         -rl          Print all process in the readyList");
         System.out.println("                         -c           Print current executing process");
         System.out.println("                         -m           Print the max number of processID(also total of process that has been created)");
         System.out.println("                         -r [RID]     Print detail of specified resource(include blocked queue).");
         System.out.println("                                      Print all resources's details if the RID is not specified.");
+        System.out.println("     load filePath       Execute the commands in the specified file.");
+        System.out.println("                         Notice that the filePath should be absolute!");
         System.out.println("     exit:               Exit the system");
         System.out.println("     help:               Print this help massage!");
         System.out.println("     Welcome to https://github.com/chengziHome/OS_Scheduler");
