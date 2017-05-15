@@ -58,6 +58,7 @@ public class Main {
                     commands = loadFile(cmdStrs[1]);
                 } catch (IOException e) {
                     error(e.getMessage());
+                    continue;
                 }
             }else{
                 commands = new String[]{cmdStr};
@@ -330,7 +331,6 @@ public class Main {
         }
         String[] result = new String[cmdList.size()];
         cmdList.toArray(result);
-        System.out.println(Arrays.toString(result));
         return result;
     }
 

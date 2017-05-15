@@ -26,7 +26,7 @@ public class ResourceManager {
     }
 
     private ResourceManager(){
-        this.idGenerator = new AtomicInteger();
+        this.idGenerator = new AtomicInteger(1);//资源起始值为1，更加直观
     }
 
     public static ResourceManager getManager(){

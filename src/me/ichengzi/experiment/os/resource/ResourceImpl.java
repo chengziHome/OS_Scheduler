@@ -84,20 +84,23 @@ public class ResourceImpl implements Resource {
     @Override
     public ReturnUtil release(Process process) {
         int num = 0;
-        for (Map.Entry<Resource,Integer> entry :process.getResourceMap().entrySet()){
-            Resource resource = entry.getKey();
-            if (resource.getRID() == getRID()){
-                num = entry.getValue();
-                break;
-            }
-        }
+//        for (Map.Entry<Resource,Integer> entry :process.getResourceMap().entrySet()){
+//            Resource resource = entry.getKey();
+//            if (resource.getRID() == getRID()){
+//                num = entry.getValue();
+//                break;
+//            }
+//        }
+
+        num = process.getResourceMap().remove(this);
+
         if (num==0) return ReturnUtil.success();
 
         remaining = remaining + num;
         while(!blockDeque.isEmpty()){
             BlockProcess blockProcess = blockDeque.peekFirst();
             int need = blockProcess.getNeed();
-            if(remaining>need){//可以唤醒阻塞队列队头的一个进程
+            if(remaining>=need){//可以唤醒阻塞队列队头的一个进程
                 Process readyProcess = blockProcess.getProcess();
                 request(readyProcess,need);//必然会执行到最后的else代码块,更新了PCB的资源数据区
                 blockDeque.removeFirst();
